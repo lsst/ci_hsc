@@ -62,8 +62,9 @@ class Validation(object):
 
     def validateDataset(self, dataId, dataset):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
-        data = self.butler.get(dataset, dataId)
-        self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
+        # Disabled for now: see DM-4927.
+        #data = self.butler.get(dataset, dataId)
+        #self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
 
     def validateFile(self, dataId, dataset):
         filename = self.butler.get(dataset + "_filename", dataId)[0]
