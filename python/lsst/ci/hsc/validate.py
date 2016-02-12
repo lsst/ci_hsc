@@ -13,6 +13,16 @@ def getButler(root):
         _butler[root] = Butler(root)
     return butler[root]
 
+def registerSourcePlugin(f):
+    f.isSourceValidatePlugin = True
+    return f
+
+def metaRegisterSourcePlugin(classList):
+    def generator(func):
+        for cls in classList:
+            setattr(eval(cls), func.__name__, registerSourcePlugin(func))
+        return func
+    return generator
 
 class Validation(object):
     _datasets = [] # List of datasets to check we can read
@@ -22,6 +32,7 @@ class Validation(object):
     _matchDataset = None # Dataset name of matches
     _minMatches = 10 # Minimum number of matches
     _butler = {}
+    _sourcePluginExclude = []
 
     def __init__(self, root, log=None):
         if log is None:
@@ -29,6 +40,17 @@ class Validation(object):
         self.log = log
         self.root = root
         self._butler = None
+        self.buildSourceValidatePlugins()
+
+    def buildSourceValidatePlugins(self):
+        self.sourceValidatePlugins = []
+        for f in dir(self):
+            # Exclude the butler property explicitly
+            if f != 'butler':
+                prop = getattr(self, f)
+                if hasattr(prop, "isSourceValidatePlugin"):
+                    if prop.__name__ not in self._sourcePluginExclude:
+                        self.sourceValidatePlugins.append(prop)
 
     @property
     def butler(self):
@@ -60,17 +82,6 @@ class Validation(object):
     def assertLessEqual(self, description, num1, num2):
         self.assertTrue(description + " (%d <= %d)" % (num1, num2), num1 <= num2)
 
-
-    def checkApertureCorrections(self, catalog):
-        """Utility function for derived classes that want to verify that aperture corrections were applied
-        """
-        for alg in ("base_PsfFlux", "base_GaussianFlux"):
-            self.assertTrue("Aperture correction fields for %s are present." % alg,
-                            (("%s_apCorr" % alg) in catalog.schema) and
-                            (("%s_apCorrSigma" % alg) in catalog.schema) and
-                            (("%s_flag_apCorr" % alg) in catalog.schema))
-
-
     def validateDataset(self, dataId, dataset):
         self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=dataId))
         # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
@@ -91,10 +102,15 @@ class Validation(object):
         self.assertTrue("%s exists on disk" % dataset, os.path.exists(filename))
         self.assertGreater("%s has non-zero size" % dataset, os.stat(filename).st_size, 0)
 
+    @registerSourcePlugin
+    def validateSourceNumber(self, catalog):
+        self.assertGreater("Number of sources", len(catalog), self._minSources)
+
     def validateSources(self, dataId):
         src = self.butler.get(self._sourceDataset, dataId)
-        self.assertGreater("Number of sources", len(src), self._minSources)
-        return src
+        for p in self.sourceValidatePlugins:
+            print("running plugin {}".format(str(p)))
+            p(src)
 
     def validateMatches(self, dataId):
         # XXX lsst.meas.astrom.readMatches is gone!
@@ -143,10 +159,6 @@ class SfmValidation(Validation):
     _sourceDataset = "src"
     _matchDatasets = ["icMatch", "srcMatch"]
 
-    def validateSources(self, dataId):
-        catalog = Validation.validateSources(self, dataId)
-        self.checkApertureCorrections(catalog)
-
 class SkymapValidation(Validation):
     _datasets = ["deepCoadd_skyMap"]
 
@@ -169,13 +181,15 @@ class MeasureValidation(Validation):
     _sourceDataset = "deepCoadd_meas"
     _matchDataset = "deepCoadd_srcMatch"
 
-    def validateSources(self, dataId):
-        catalog = Validation.validateSources(self, dataId)
+    @registerSourcePlugin
+    def checkPSF(self, catalog):
         self.assertTrue("calib_psfCandidate field exists in deepCoadd_meas catalog",
                         "calib_psfCandidate" in catalog.schema)
         self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
                         "calib_psfUsed" in catalog.schema)
-        self.checkApertureCorrections(catalog)
+   
+    @registerSourcePlugin
+    def checkPSFStars(self, catalog)
         # Check that at least 95% of the stars we used to model the PSF end up classified as stars
         # on the coadd.  We certainly need much more purity than that to build good PSF models, but
         # this should verify that flag propagation, aperture correction, and extendendess are all
@@ -197,6 +211,14 @@ class ForcedValidation(Validation):
     _datasets = ["deepCoadd_forced_src_schema", "deepCoadd_forced_config", "deepCoadd_forced_metadata"]
     _sourceDataset = "deepCoadd_forced_src"
 
-    def validateSources(self, dataId):
-        catalog = Validation.validateSources(self, dataId)
-        self.checkApertureCorrections(catalog)
+
+# Register checkApertureCorrections to run in SfmValidation, MeasureValidation, and ForcedValidation
+@metaRegisterSourcePlugin(["SfmValidation", "MeasureValidation", "ForcedValidation"])
+def checkApertureCorrections(self, catalog):
+    """Utility function for derived classes that want to verify that aperture corrections were applied
+    """
+    for alg in ("base_PsfFlux", "base_GaussianFlux"):
+        self.assertTrue("Aperture correction fields for %s are present." % alg,
+                        (("%s_apCorr" % alg) in catalog.schema) and 
+                        (("%s_apCorrSigma" % alg) in catalog.schema) and 
+                        (("%s_flag_apCorr" % alg) in catalog.schema))
