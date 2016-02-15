@@ -6,7 +6,7 @@ from collections import defaultdict
 from lsst.pipe.base import Struct
 from lsst.sconsUtils.utils import libraryLoaderEnvironment
 from lsst.utils import getPackageDir
-from lsst.ci.hsc.validate import *
+from lsst.ci.hsc.validationTests import *
 
 from SCons import Action
 

@@ -1,6 +1,6 @@
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
-           "MergeMeasurementsValidation", "ForcedValidation",]
+           "MergeMeasurementsValidation", "ForcedValidation", "registerSourcePlugin", "metaRegisterSourcePlugin"]
 
 import os
 import numpy
@@ -181,28 +181,6 @@ class MeasureValidation(Validation):
     _sourceDataset = "deepCoadd_meas"
     _matchDataset = "deepCoadd_srcMatch"
 
-    @registerSourcePlugin
-    def checkPSF(self, catalog):
-        self.assertTrue("calib_psfCandidate field exists in deepCoadd_meas catalog",
-                        "calib_psfCandidate" in catalog.schema)
-        self.assertTrue("calib_psfUsed field exists in deepCoadd_meas catalog",
-                        "calib_psfUsed" in catalog.schema)
-   
-    @registerSourcePlugin
-    def checkPSFStars(self, catalog)
-        # Check that at least 95% of the stars we used to model the PSF end up classified as stars
-        # on the coadd.  We certainly need much more purity than that to build good PSF models, but
-        # this should verify that flag propagation, aperture correction, and extendendess are all
-        # running and configured reasonably (but it may not be sensitive enough to detect subtle
-        # bugs).
-        psfStars = catalog.get("calib_psfUsed")
-        extStars = catalog.get("base_ClassificationExtendedness_value") < 0.5
-        self.assertGreater(
-            "95% of sources used to build the PSF are classified as stars on the coadd",
-            numpy.logical_and(extStars, psfStars).sum(),
-            0.95*psfStars.sum()
-        )
-
 class MergeMeasurementsValidation(Validation):
     _datasets = ["mergeCoaddMeasurements_config", "deepCoadd_ref_schema"]
     _sourceDataset = "deepCoadd_ref"
@@ -212,13 +190,4 @@ class ForcedValidation(Validation):
     _sourceDataset = "deepCoadd_forced_src"
 
 
-# Register checkApertureCorrections to run in SfmValidation, MeasureValidation, and ForcedValidation
-@metaRegisterSourcePlugin(["SfmValidation", "MeasureValidation", "ForcedValidation"])
-def checkApertureCorrections(self, catalog):
-    """Utility function for derived classes that want to verify that aperture corrections were applied
-    """
-    for alg in ("base_PsfFlux", "base_GaussianFlux"):
-        self.assertTrue("Aperture correction fields for %s are present." % alg,
-                        (("%s_apCorr" % alg) in catalog.schema) and 
-                        (("%s_apCorrSigma" % alg) in catalog.schema) and 
-                        (("%s_flag_apCorr" % alg) in catalog.schema))
+
