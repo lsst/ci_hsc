@@ -1,6 +1,7 @@
 __all__ = ["RawValidation", "DetrendValidation", "SfmValidation", "SkymapValidation", "WarpValidation",
            "CoaddValidation", "DetectionValidation", "MergeDetectionsValidation", "MeasureValidation",
-           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",]
+           "MergeMeasurementsValidation", "ForcedPhotCoaddValidation", "ForcedPhotCcdValidation",
+           "CreateTemplateValidation", "RemoveTemplateValidation", "MeasureTemplateValidation"]
 
 import os
 import numpy
@@ -255,3 +256,25 @@ class ForcedPhotCcdValidation(Validation):
     _datasets = ["forcedPhotCcd_config", "forcedPhotCcd_metadata",
                  "forced_src", "forced_src_schema"]
     _sourceDataset = "forced_src"
+
+class CreateTemplateValidation(Validation):
+    _datasets = ["deepCoadd_template_schema"]
+    _sourceDataset = "deepCoadd_template"
+
+class RemoveTemplateValidation(Validation):
+    _datasets = ["removeDegenerateTemplates_config", "deepCoadd_template_schema"]
+    _sourceDataset = "deepCoadd_template"
+
+    def validateSources(self, dataId):
+        meas = self.butler.get("deepCoadd_meas", dataId)
+        template = self.butler.get("deepCoadd_template", dataId)
+
+        measPeaks = [len(src.getFootprint().getPeaks()) for src in meas if src.getParent() == 0]
+        templatePeaks = [len(src.getFootprint().getPeaks()) for src in template if src.getParent() == 0]
+
+        self.assertGreaterEqual("There should be the same or fewer peaks when removing degenerate templates",
+                                numpy.sum(measPeaks), numpy.sum(templatePeaks))
+
+class MeasureTemplateValidation(Validation):
+    _datasets = ["measureCoaddSources_config", "measureCoaddSources_metadata", "deepCoadd_meas_schema"]
+    _sourceDataset = "deepCoadd_meas"

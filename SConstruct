@@ -264,7 +264,39 @@ preForcedPhotCcd = command("forcedPhotCcd", [mapper, mergeMeasurements],
 
 forcedPhotCcd = [data.forced(env, tract=0) for data in sum(allData.itervalues(), [])]
 
-everything = [forcedPhotCcd, forcedPhotCoadd]
+# Tests of degenerate templates
+def createTemplates(filterName):
+    return command("createTemplates-" + filterName, sum(coadds.itervalues(), []),
+                   [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
+                    patchId + " filter=" + filterName + " --doraise --clobber-config --clobber-versions" +
+                    " -c doMeasurement=False doPropagateFlags=False doMatchSources=False outputDataset='template' "
+                    "deblend.writeTemplates=True",
+                    validate(CreateTemplateValidation, DATADIR, patchDataId, filter=filterName)
+                    ])
+templates = [createTemplates(ff) for ff in filterList]
+env.Depends(templates, measure)
+
+# We remove the templates on all filters, but do a separate validation for each filter
+cmds = [getExecutable("pipe_tasks", "removeDegenerateTemplates.py") + " " + PROC + " --id " +
+        patchId + " filter=" + "^".join(filterList) + " --doraise --clobber-config --clobber-versions"]
+for filter in filterList:
+    cmds.append(validate(RemoveTemplateValidation, DATADIR, patchDataId, filter=filter))
+removeTemplates = command("removeTemplates", sum(coadds.itervalues(), []), cmds)
+env.Depends(removeTemplates, templates)
+
+def measureFromTemplates(filterName):
+    return command("measureFromTemplates-" + filterName, sum(coadds.itervalues(), []),
+                   [getExecutable("pipe_tasks", "measureCoaddSources.py") + " " + PROC + " --id " +
+                    patchId + " filter=" + filterName + " --doraise --clobber-config --clobber-versions" +
+                    " -c inputDataset='template' ",
+                    validate(MeasureTemplateValidation, DATADIR, patchDataId, filter=filterName)
+                    ])
+measureTemplates = [measureFromTemplates(ff) for ff in filterList]
+env.Depends(measureTemplates, removeTemplates)
+
+
+everything = [forcedPhotCcd, forcedPhotCoadd, templates, removeTemplates, measureTemplates]
+
 
 # Add a no-op install target to keep Jenkins happy.
 env.Alias("install", "SConstruct")
@@ -273,3 +305,6 @@ env.Alias("all", everything)
 Default(everything)
 
 env.Clean(everything, [".scons", "DATA/rerun/ci_hsc"])
+
+
+
