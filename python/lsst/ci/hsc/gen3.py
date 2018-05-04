@@ -41,6 +41,8 @@ butlerConfig["datastore.root"] = REPO_ROOT
 butlerConfig["datastore.create"] = True
 butlerConfig["datastore.records.table"] = "PosixDatastoreRecords"
 butlerConfig["datastore.formatters"] = {
+    "Catalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "PeakCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
     "SourceCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
     "ImageF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ImageU": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
@@ -50,6 +52,11 @@ butlerConfig["datastore.formatters"] = {
     "ExposureF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ExposureI": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "SkyMap": "lsst.daf.butler.formatters.pickleFormatter.PickleFormatter",
+    "TablePersistableTransmissionCurve":
+        "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "Background": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "Config": "lsst.daf.butler.formatters.pexConfigFormatter.PexConfigFormatter",
+    "Packages": "lsst.daf.butler.formatters.pickleFormatter.PickleFormatter",
 }
 
 StorageClassFactory.fromConfig(butlerConfig)
