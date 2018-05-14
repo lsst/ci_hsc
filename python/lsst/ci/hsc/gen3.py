@@ -41,8 +41,10 @@ butlerConfig["datastore.root"] = REPO_ROOT
 butlerConfig["datastore.create"] = True
 butlerConfig["datastore.formatters"] = {
     "SourceCatalog": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "ImageF": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
-    "MaskX": "lsst.daf.butler.formatters.fitsCatalogFormatter.FitsCatalogFormatter",
+    "ImageF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "ImageU": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "DecoratedImageU": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
+    "MaskX": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "Exposure": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ExposureF": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
     "ExposureI": "lsst.daf.butler.formatters.fitsExposureFormatter.FitsExposureFormatter",
