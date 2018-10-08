@@ -228,6 +228,38 @@ class RawValidation(Validation):
 class DetrendValidation(Validation):
     _datasets = ["bias", "dark", "flat"]
 
+    def validateDataset(self, dataId, dataset):
+        if self.gen3 and dataset.endswith("metadata"):
+            return
+
+        useDataIds = []
+        if dataset == "bias" or dataset == "dark":
+            useDataIds.append({"sensor": dataId["sensor"], "camera": dataId["camera"],
+                              "valid_first": "2013-05-07 00:00:00.000000",
+                              "valid_last": "2014-05-02 00:00:00.000000"})
+        if dataset == "flat":
+            useDataIds.append({"sensor": dataId["sensor"], "camera": dataId["camera"],
+                              "physical_filter": "HSC-I",
+                              "valid_first": "2013-05-07 00:00:00.000000",
+                              "valid_last": "2014-05-02 00:00:00.000000"})
+            useDataIds.append({"sensor": dataId["sensor"], "camera": dataId["camera"],
+                              "physical_filter": "HSC-R",
+                              "valid_first": "2012-12-19 00:00:00.000000",
+                              "valid_last": "2013-12-14 00:00:00.000000"})
+
+        for useDataId in useDataIds:
+            self.log.info("Validating calib dataset %s for %s" % (dataset, useDataId))
+            self.assertTrue("%s exists" % dataset, self.butler.datasetExists(datasetType=dataset, dataId=useDataId))
+            # Just warn if we can't load a PropertySet or PropertyList; there's a known issue
+            # (DM-4927) that prevents these from being loaded on Linux, with no imminent resolution.
+            try:
+                data = self.butler.get(dataset, useDataId)
+                self.assertTrue("%s readable (%s)" % (dataset, data.__class__), data is not None)
+            except Exception:
+                if dataset.endswith("metadata"):
+                    self.log.warn("Unable to load '%s'; this is likely DM-4927." % dataset)
+                    return
+                raise
 
 class SfmValidation(Validation):
     _datasets = ["processCcd_config", "processCcd_metadata", "calexp", "calexpBackground",
