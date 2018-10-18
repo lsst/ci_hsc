@@ -95,7 +95,6 @@ AddOption("--enable-profile", nargs="?", const="profile", dest="enable_profile",
 RAW = GetOption("raw")
 REPO = GetOption("repo")
 CALIB = GetOption("calib")
-DATADIR = os.path.join(GetOption("repo"), "rerun", GetOption("rerun"))
 STDARGS = "--doraise" + (" --no-versions" if GetOption("no_versions") else "")
 
 
