@@ -9,3 +9,5 @@ bin/
 .pytest_cache
 pytest_session.txt
 .coverage
+tests/.tests
+version.py

@@ -3,13 +3,17 @@
 import os
 from lsst.pipe.base import Struct
 from lsst.sconsUtils.utils import libraryLoaderEnvironment
+from lsst.sconsUtils.scripts import BasicSConstruct
 from lsst.utils import getPackageDir
 from lsst.ci.hsc.validate import RawValidation, DetrendValidation
 
-from SCons.Script import SConscript, Environment, GetOption, Touch, Execute, AddOption, Mkdir, Dir, Default
-SConscript(os.path.join(".", "bin.src", "SConscript"))  # build bin scripts
+from SCons.Script import (GetOption, Touch, Execute,
+                          AddOption, Mkdir, Dir, Default)
 
-env = Environment(ENV=os.environ)
+env = BasicSConstruct("ci_hsc", subDirList=["DATA", "python", "bin", "ups"],
+                      noCfgFile=True, disableCc=True, followLinks=True)
+
+env["ENV"].update(**os.environ)
 env["ENV"]["OMP_NUM_THREADS"] = "1"  # Disable threading; we're parallelising at a higher level
 
 
