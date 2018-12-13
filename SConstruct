@@ -246,6 +246,8 @@ skymap = command("skymap", mapper,
                  [getExecutable("pipe_tasks", "makeSkyMap.py") + " " + PROC + " -C skymap.py " + STDARGS,
                   validate(SkymapValidation, DATADIR, gen3id=dict(skymap="ci_hsc"))])
 
+env.Alias("prep", [skymap, transmissionCurvesTarget, brightObjTarget, refcat, ingest, calib, mapper])
+
 # Single frame measurement
 # preSfm step is a work-around for a race on schema/config/versions
 preSfm = command("sfm", [skymap, transmissionCurvesTarget],
