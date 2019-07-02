@@ -26,7 +26,8 @@ import lsst.utils.tests
 import lsst.afw.image.testUtils  # noqa; injects test methods into TestCase
 import lsst.meas.algorithms
 from lsst.utils import getPackageDir
-from lsst.daf.butler import Butler, DataId, DatasetOriginInfoDef
+from lsst.daf.butler import Butler, DataId
+from lsst.daf.butler.sql import SingleDatasetQueryBuilder
 from lsst.daf.persistence import Butler as Butler2
 from lsst.obs.subaru.gen3.hsc import HyperSuprimeCam
 from lsst.pipe.tasks.objectMasks import ObjectMaskCatalog
@@ -123,41 +124,57 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         """Test that defects, the camera, and the brighter-fatter kernel were
         added to the Gen3 registry.
         """
-        originInfo = DatasetOriginInfoDef(["raw", "calib"], [])
-        # Query for raws that have associated calibs of the types below;
-        # result is an iterator over rows that correspond roughly to data IDs.
-        rowsWithCalibs = list(
-            self.butler.registry.selectMultipleDatasetTypes(
-                originInfo, expression="",
-                required=["raw", "camera", "bfKernel", "defects"],
-                perDatasetTypeDimensions=["calibration_label"]
-            )
-        )
-        # Query for all rows, with no restriction on having associated calibs.
-        rowsWithoutCalibs = list(
-            self.butler.registry.selectMultipleDatasetTypes(
-                originInfo, expression="",
-                required=["raw"],
-            )
-        )
-        # We should get the same raws in both cases because all of the raws
-        # here should have associated calibs.
-        self.assertGreater(len(rowsWithoutCalibs), 0)
-        self.assertEqual(len(rowsWithCalibs), len(rowsWithoutCalibs))
-        # Try getting those calibs to make sure the files themselves are
-        # where the Butler thinks they are.
+        rawDatasetType = self.butler.registry.getDatasetType("raw")
         butler = Butler(REPO_ROOT, run="calib")
+        rawQueryBuilder = SingleDatasetQueryBuilder.fromSingleCollection(
+            self.butler.registry,
+            rawDatasetType,
+            collection="raw"
+        )
+        cameraRef = None
+        bfKernelRef = None
+        rawRefs = list(rawQueryBuilder.execute(expandDataId=True))
+        for rawRef in rawRefs:
+            # Expand raw data ID to include implied dimensions (e.g.
+            # physical_filter from exposure).
+            rawDataId = DataId(rawRef.dataId, dimensions=rawDatasetType.dimensions.implied(only=False))
+            for calibDatasetTypeName in ("camera", "bfKernel", "defects"):
+                calibDatasetType = self.butler.registry.getDatasetType(calibDatasetTypeName)
+                calibQueryBuilder = SingleDatasetQueryBuilder.fromSingleCollection(
+                    self.butler.registry,
+                    calibDatasetType,
+                    collection="calib"
+                )
+                calibQueryBuilder.relateDimensions(rawDataId.dimensions())
+                calibQueryBuilder.whereDataId(rawDataId)
+                calibRefs = list(calibQueryBuilder.execute())
+                # We should have exactly one calib of each type for each raw.
+                self.assertEqual(len(calibRefs), 1)
+
+                # Try getting those calibs to make sure the files themselves
+                # are where the Butler thinks they are.
+                # We defer that for camera and bfKernel, because there's only
+                # one of each of those.
+                if calibDatasetTypeName == "camera":
+                    if cameraRef is None:
+                        cameraRef = calibRefs[0]
+                    else:
+                        self.assertEqual(cameraRef, calibRefs[0])
+                elif calibDatasetTypeName == "bfKernel":
+                    if bfKernelRef is None:
+                        bfKernelRef = calibRefs[0]
+                    else:
+                        self.assertEqual(bfKernelRef, calibRefs[0])
+                else:
+                    defects = butler.get(calibRefs[0])
+                    self.assertIsInstance(defects, lsst.meas.algorithms.Defects)
+
         instrument = HyperSuprimeCam()
-        for row in rowsWithCalibs:
-            refsByName = {k.name: v for k, v in row.datasetRefs.items()}
-            cameraFromButler = butler.get(refsByName["camera"])
-            cameraFromInstrument = instrument.getCamera()
-            self.assertEqual(len(cameraFromButler), len(cameraFromInstrument))
-            self.assertEqual(cameraFromButler.getName(), cameraFromInstrument.getName())
-            self.assertFloatsEqual(butler.get(refsByName["bfKernel"]),
-                                   instrument.getBrighterFatterKernel())
-            defects = butler.get(refsByName["defects"])
-            self.assertIsInstance(defects, lsst.meas.algorithms.Defects)
+        cameraFromButler = butler.get(cameraRef)
+        cameraFromInstrument = instrument.getCamera()
+        self.assertEqual(len(cameraFromButler), len(cameraFromInstrument))
+        self.assertEqual(cameraFromButler.getName(), cameraFromInstrument.getName())
+        self.assertFloatsEqual(butler.get(bfKernelRef), instrument.getBrighterFatterKernel())
 
     def testBrightObjectMasks(self):
         """Test that bright object masks are included in the Gen3 repo.
