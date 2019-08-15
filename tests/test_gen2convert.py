@@ -116,9 +116,9 @@ class Gen2ConvertTestCase(lsst.utils.tests.TestCase):
         # 'r2', not just 'r'.  We need that to be compatible with Gen2 usage
         # of the afw.image.Filter system.
         rawR = self.butler.get("raw", instrument="HSC", exposure=903334, detector=16)
-        self.assertEqual(rawR.getFilter().getName(), "r")
+        self.assertEqual(rawR.getFilter().getCanonicalName(), "r")
         rawI = self.butler.get("raw", instrument="HSC", exposure=903986, detector=16)
-        self.assertEqual(rawI.getFilter().getName(), "i")
+        self.assertEqual(rawI.getFilter().getCanonicalName(), "i")
 
     def testCuratedCalibrations(self):
         """Test that defects, the camera, and the brighter-fatter kernel were
