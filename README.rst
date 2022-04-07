@@ -2,7 +2,7 @@
 ``ci_hsc``
 ==========
 
-``ci_hsc`` is a simple metapackage for the ci_hsc_gen2 and ci_hsc_gen3
+``ci_hsc`` is a simple metapackage for the ci_hsc_gen3
 packages, which test most of the LSST Data Release Production
 pipelines on a minimal HSC test dataset (the testdata_ci_hsc package),
 using different middleware systems for data access and execution.
